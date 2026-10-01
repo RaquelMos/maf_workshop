@@ -4,6 +4,7 @@ from http.server import ThreadingHTTPServer
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
+import app
 from app import TaskHandler, tasks
 
 
@@ -23,11 +24,15 @@ class TaskHandlerTests(unittest.TestCase):
 
     def setUp(self):
         tasks.clear()
+        app.next_task_id = 1
+
+    def post(self, path, fields):
+        data = urlencode(fields).encode()
+        with urlopen(f"{self.base_url}{path}", data=data) as response:
+            self.assertEqual(response.status, 200)
 
     def submit(self, task):
-        data = urlencode({"task": task}).encode()
-        with urlopen(f"{self.base_url}/tasks", data=data) as response:
-            self.assertEqual(response.status, 200)
+        self.post("/tasks", {"task": task})
 
     def test_empty_and_whitespace_submissions_are_ignored(self):
         self.submit("")
@@ -38,7 +43,22 @@ class TaskHandlerTests(unittest.TestCase):
     def test_nonempty_submission_is_trimmed_and_added(self):
         self.submit("  finish the report  ")
 
-        self.assertEqual(tasks, ["finish the report"])
+        self.assertEqual([task.description for task in tasks], ["finish the report"])
+        self.assertFalse(tasks[0].completed)
+
+    def test_tasks_can_be_completed_and_reopened(self):
+        self.submit("finish the report")
+
+        self.post("/tasks/complete", {"task_id": tasks[0].id})
+        self.assertTrue(tasks[0].completed)
+
+        with urlopen(self.base_url) as response:
+            page = response.read().decode()
+        self.assertIn('class="completed">finish the report</span>', page)
+        self.assertIn(">Reopen</button>", page)
+
+        self.post("/tasks/complete", {"task_id": tasks[0].id})
+        self.assertFalse(tasks[0].completed)
 
 
 if __name__ == "__main__":
