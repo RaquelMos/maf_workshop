@@ -60,6 +60,25 @@ class TaskHandlerTests(unittest.TestCase):
         self.post("/tasks/complete", {"task_id": tasks[0].id})
         self.assertFalse(tasks[0].completed)
 
+    def test_completing_second_task_does_not_change_first(self):
+        self.submit("A")
+        self.submit("B")
+
+        self.assertNotEqual(tasks[0].id, tasks[1].id)
+        self.post("/tasks/complete", {"task_id": tasks[1].id})
+
+        self.assertFalse(tasks[0].completed)
+        self.assertTrue(tasks[1].completed)
+        with urlopen(self.base_url) as response:
+            page = response.read().decode()
+        self.assertIn('class="">A</span>', page)
+        self.assertIn('class="completed">B</span>', page)
+        self.assertIn(f'name="task_id" value="{tasks[1].id}"><button type="submit">Reopen', page)
+
+        self.post("/tasks/complete", {"task_id": tasks[1].id})
+        self.assertFalse(tasks[0].completed)
+        self.assertFalse(tasks[1].completed)
+
 
 if __name__ == "__main__":
     unittest.main()
