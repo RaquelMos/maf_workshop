@@ -81,7 +81,6 @@ class TaskHandler(BaseHTTPRequestHandler):
             description = form.get("task", [""])[0].strip()
             if description:
                 tasks.append(Task(id=next_task_id, description=description))
-                next_task_id += 1
         else:
             try:
                 task_id = int(form.get("task_id", [""])[0])
